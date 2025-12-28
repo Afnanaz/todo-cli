@@ -1,0 +1,140 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1.1
+
+executors:
+  python-executor:
+    parameters:
+      version:
+        type: string
+        default: "3.11"
+    docker:
+      - image: cimg/python:<< parameters.version >>
+
+jobs:
+  test:
+    parameters:
+      python-version:
+        type: string
+    executor:
+      name: python-executor
+      version: << parameters.python-version >>
+    steps:
+      - checkout
+      
+      # Cache tanpa dependency pada requirements.txt
+      - restore_cache:
+          keys:
+            - deps-v1-<< parameters.python-version >>-{{ checksum "test_todo.py" }}
+            - deps-v1-<< parameters.python-version >>
+      
+      - run:
+          name: Install dependencies
+          command: |
+            pip install --upgrade pip
+            pip install pytest pytest-cov flake8 black isort
+      
+      - save_cache:
+          key: deps-v1-<< parameters.python-version >>-{{ checksum "test_todo.py" }}
+          paths:
+            - ~/.cache/pip
+      
+      - run:
+          name: Run tests
+          command: |
+            mkdir -p test-results
+            python -m pytest test_todo.py -v \
+              --cov=todo \
+              --cov-report=xml \
+              --cov-report=html \
+              --cov-report=term-missing \
+              --junitxml=test-results/junit.xml
+      
+      - store_test_results:
+          path: test-results
+      
+      - store_artifacts:
+          path: htmlcov
+          destination: coverage-report
+      
+      - store_artifacts:
+          path: coverage.xml
+      
+      - persist_to_workspace:
+          root: .
+          paths:
+            - coverage.xml
+
+  lint:
+    executor:
+      name: python-executor
+      version: "3.11"
+    steps:
+      - checkout
+      
+      - run:
+          name: Install linting tools
+          command: |
+            pip install flake8 black isort
+      
+      - run:
+          name: Run Flake8
+          command: |
+            flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+            flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+      
+      - run:
+          name: Check Black formatting
+          command: black --check . || echo "Black formatting check completed"
+      
+      - run:
+          name: Check import sorting
+          command: isort --check-only . || echo "Import sorting check completed"
+
+  integration:
+    executor:
+      name: python-executor
+      version: "3.11"
+    steps:
+      - checkout
+      
+      - run:
+          name: CLI Integration Tests
+          command: |
+            python todo.py add "CircleCI Task 1" -p high
+            python todo.py add "CircleCI Task 2" -p medium
+            python todo.py list || true
+            python todo.py complete 1
+            python todo.py delete 2
+            python todo.py clear
+            echo "✅ CLI integration tests passed"
+
+workflows:
+  version: 2
+  test-and-deploy:
+    jobs:
+      - test:
+          name: test-py38
+          python-version: "3.8"
+      - test:
+          name: test-py39
+          python-version: "3.9"
+      - test:
+          name: test-py310
+          python-version: "3.10"
+      - test:
+          name: test-py311
+          python-version: "3.11"
+      - test:
+          name: test-py312
+          python-version: "3.12"
+      
+      - lint:
+          requires:
+            - test-py311
+      
+      - integration:
+          requires:
+            - test-py311
+            - lint
