@@ -1,0 +1,9 @@
+# Dependencied for the project
+pytest>=7.4.0
+pytest-cov>=4.1.0
+flake8>=6.0.0
+black>=24.3.0
+mypy>=1.3.0
+
+# Another library
+colorama>=0.4.6
