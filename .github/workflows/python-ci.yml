@@ -1,23 +1,22 @@
-name: Python CI
+name: Run Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, master, develop]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        python-version: [3.10, 3.11, 3.12]  # <-- update ke versi yang tersedia
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -25,8 +24,25 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run unit tests
+      - name: Run tests with coverage
         run: |
-          pytest -v
+          # Sesuaikan folder/todo.py langsung di root
+          pytest -v --cov=. --cov-report=term-missing --cov-report=html
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-html-${{ matrix.python-version }}
+          path: htmlcov/
+
+      - name: Coverage summary
+        if: matrix.python-version == '3.9'
+        run: |
+          echo "## Coverage Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "```" >> "$GITHUB_STEP_SUMMARY"
+          pytest --cov=. --cov-report=term | grep -E '(TOTAL|Name)' | tail -n 2 >> "$GITHUB_STEP_SUMMARY"
+          echo "```" >> "$GITHUB_STEP_SUMMARY"
