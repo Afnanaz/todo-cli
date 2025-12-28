@@ -1,0 +1,105 @@
+image: python:3.11
+
+stages:
+  - test
+  - lint
+  - integration
+  - report
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - venv/
+
+before_script:
+  - python -V
+  - pip install virtualenv
+  - virtualenv venv
+  - source venv/bin/activate
+  - pip install pytest pytest-cov flake8 black isort
+
+# Test jobs for multiple Python versions
+.test_template: &test_definition
+  stage: test
+  script:
+    - python -m pytest test_todo.py -v --cov=todo --cov-report=term-missing --cov-report=html
+  artifacts:
+    paths:
+      - htmlcov/
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    expire_in: 1 week
+
+test:python38:
+  <<: *test_definition
+  image: python:3.8
+
+test:python39:
+  <<: *test_definition
+  image: python:3.9
+
+test:python310:
+  <<: *test_definition
+  image: python:3.10
+
+test:python311:
+  <<: *test_definition
+  image: python:3.11
+
+test:python312:
+  <<: *test_definition
+  image: python:3.12
+
+# Linting job
+lint:flake8:
+  stage: lint
+  script:
+    - flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+  allow_failure: true
+
+lint:black:
+  stage: lint
+  script:
+    - black --check .
+  allow_failure: true
+
+lint:isort:
+  stage: lint
+  script:
+    - isort --check-only .
+  allow_failure: true
+
+# Integration tests
+integration:cli:
+  stage: integration
+  script:
+    - python todo.py add "GitLab Task 1" -p high
+    - python todo.py add "GitLab Task 2" -p medium
+    - python todo.py list
+    - python todo.py complete 1
+    - python todo.py delete 2
+    - python todo.py clear
+    - echo "✅ CLI integration tests passed"
+  dependencies:
+    - test:python311
+
+# Coverage report
+pages:
+  stage: report
+  script:
+    - echo "Generating coverage report..."
+  artifacts:
+    paths:
+      - htmlcov/
+  only:
+    - main
+  dependencies:
+    - test:python311
+
+---
