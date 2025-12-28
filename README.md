@@ -148,14 +148,6 @@ All PRs must pass the CI checks:
 - ✅ Code quality checks passing
 - ✅ Builds successfully
 
-## License 📄
-
-MIT License - feel free to use this project however you'd like!
-
 ## Author ✍️
 
-Your Name - [@yourusername](https://github.com/yourusername)
-
----
-
-Made with ❤️ and Python
+Afnan sukri anwar Abdullah
