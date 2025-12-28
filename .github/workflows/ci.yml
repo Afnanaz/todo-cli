@@ -42,7 +42,7 @@ jobs:
     
     - name: Run unit tests
       run: |
-        python -m pytest test_todo.py -v --cov=todo --cov-report=xml --cov-report=term-missing
+        python -m pytest tests/test_todo.py -v --cov=todo --cov-report=xml --cov-report=term-missing
     
     - name: Run linting
       run: |
